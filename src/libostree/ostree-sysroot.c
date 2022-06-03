@@ -34,6 +34,7 @@
 #include "ostree-deployment-private.h"
 #include "ostree-bootloader-aboot.h"
 #include "ostree-bootloader-uboot.h"
+#include "ostree-bootloader-sd-boot.h"
 #include "ostree-bootloader-syslinux.h"
 #include "ostree-bootloader-grub2.h"
 #include "ostree-bootloader-zipl.h"
@@ -1516,6 +1517,8 @@ _ostree_sysroot_new_bootloader_by_type (
       return (OstreeBootloader*) _ostree_bootloader_aboot_new (sysroot);
     case CFG_SYSROOT_BOOTLOADER_OPT_UBOOT:
       return (OstreeBootloader*) _ostree_bootloader_uboot_new (sysroot);
+    case CFG_SYSROOT_BOOTLOADER_OPT_SDBOOT:
+      return (OstreeBootloader*) _ostree_bootloader_sdboot_new (sysroot);
     case CFG_SYSROOT_BOOTLOADER_OPT_ZIPL:
       /* We never consider zipl as active by default, so it can only be created
        * if it's explicitly requested in the config */
@@ -1554,6 +1557,7 @@ _ostree_sysroot_query_bootloader (OstreeSysroot     *sysroot,
         CFG_SYSROOT_BOOTLOADER_OPT_SYSLINUX,
         CFG_SYSROOT_BOOTLOADER_OPT_GRUB2,
         CFG_SYSROOT_BOOTLOADER_OPT_UBOOT,
+        CFG_SYSROOT_BOOTLOADER_OPT_SDBOOT,
       };
       for (int i = 0; i < G_N_ELEMENTS (probe); i++)
         {

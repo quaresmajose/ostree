@@ -384,6 +384,13 @@ setup_os_boot_uboot() {
     ln -s loader/uEnv.txt sysroot/boot/uEnv.txt
 }
 
+setup_os_boot_sdboot() {
+    # Stub systemd-boot configuration
+    mkdir -p sysroot/boot/loader
+    echo -n "loader.0" > sysroot/boot/loader/ostree_bootversion
+    touch sysroot/boot/loader/loader.conf
+}
+
 setup_os_boot_grub2() {
     grub2_options=$1
     mkdir -p sysroot/boot/grub2/
@@ -511,6 +518,9 @@ EOF
             ;;
         "uboot")
 	    setup_os_boot_uboot
+            ;;
+        "sdboot")
+	    setup_os_boot_sdboot
             ;;
         *grub2*)
         setup_os_boot_grub2 "${bootmode}"
