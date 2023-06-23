@@ -22,11 +22,11 @@
 #include "config.h"
 
 #include "libglnx.h"
-#include "ot-editor.h"
 #include "otutil.h"
+#include "ot-editor.h"
 
-#include <string.h>
 #include <sys/wait.h>
+#include <string.h>
 
 #ifndef DEFAULT_EDITOR
 #define DEFAULT_EDITOR "vi"
@@ -56,11 +56,14 @@ get_editor (void)
 }
 
 char *
-ot_editor_prompt (OstreeRepo *repo, const char *input, GCancellable *cancellable, GError **error)
+ot_editor_prompt (OstreeRepo *repo,
+                  const char *input,
+                  GCancellable *cancellable,
+                  GError **error)
 {
   glnx_unref_object GSubprocess *proc = NULL;
-  g_autoptr (GFile) file = NULL;
-  g_autoptr (GFileIOStream) io = NULL;
+  g_autoptr(GFile) file = NULL;
+  g_autoptr(GFileIOStream) io = NULL;
   GOutputStream *output;
   const char *editor;
   char *ret = NULL;
@@ -79,8 +82,8 @@ ot_editor_prompt (OstreeRepo *repo, const char *input, GCancellable *cancellable
     goto out;
 
   output = g_io_stream_get_output_stream (G_IO_STREAM (io));
-  if (!g_output_stream_write_all (output, input, strlen (input), NULL, cancellable, error)
-      || !g_io_stream_close (G_IO_STREAM (io), cancellable, error))
+  if (!g_output_stream_write_all (output, input, strlen (input), NULL, cancellable, error) ||
+      !g_io_stream_close (G_IO_STREAM (io), cancellable, error))
     goto out;
 
   {
@@ -88,7 +91,8 @@ ot_editor_prompt (OstreeRepo *repo, const char *input, GCancellable *cancellable
     args = g_strconcat (editor, " ", quoted_file, NULL);
   }
 
-  proc = g_subprocess_new (G_SUBPROCESS_FLAGS_STDIN_INHERIT, error, "/bin/sh", "-c", args, NULL);
+  proc = g_subprocess_new (G_SUBPROCESS_FLAGS_STDIN_INHERIT, error,
+                           "/bin/sh", "-c", args, NULL);
 
   if (!g_subprocess_wait_check (proc, cancellable, error))
     {
@@ -96,11 +100,11 @@ ot_editor_prompt (OstreeRepo *repo, const char *input, GCancellable *cancellable
       goto out;
     }
 
-  ret = glnx_file_get_contents_utf8_at (AT_FDCWD, gs_file_get_path_cached (file), NULL, cancellable,
-                                        error);
+  ret = glnx_file_get_contents_utf8_at (AT_FDCWD, gs_file_get_path_cached (file), NULL,
+                                        cancellable, error);
 
 out:
   if (file)
-    (void)g_file_delete (file, NULL, NULL);
+    (void )g_file_delete (file, NULL, NULL);
   return ret;
 }

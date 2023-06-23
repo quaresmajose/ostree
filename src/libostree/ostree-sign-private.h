@@ -29,7 +29,11 @@
 
 G_BEGIN_DECLS
 
-gboolean _ostree_sign_summary_at (OstreeSign *self, OstreeRepo *repo, int dir_fd, GVariant *keys,
-                                  GCancellable *cancellable, GError **error);
+gboolean _ostree_sign_summary_at (OstreeSign    *self,
+                                  OstreeRepo    *repo,
+                                  int            dir_fd,
+                                  GVariant      *keys,
+                                  GCancellable  *cancellable,
+                                  GError       **error);
 
 G_END_DECLS

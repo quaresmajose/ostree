@@ -21,10 +21,10 @@
 
 #include "config.h"
 
-#include <gio/gfiledescriptorbased.h>
 #include <gio/gio.h>
 #include <gio/gunixinputstream.h>
 #include <gio/gunixoutputstream.h>
+#include <gio/gfiledescriptorbased.h>
 
 #include <string.h>
 
@@ -35,7 +35,9 @@
 #endif
 
 GFile *
-ot_gfile_resolve_path_printf (GFile *path, const char *format, ...)
+ot_gfile_resolve_path_printf (GFile       *path,
+                              const char  *format,
+                              ...)
 {
   va_list args;
   g_autofree char *relpath = NULL;
@@ -53,14 +55,18 @@ ot_gfile_resolve_path_printf (GFile *path, const char *format, ...)
  * Like g_file_replace_contents(), except always uses fdatasync().
  */
 gboolean
-ot_gfile_replace_contents_fsync (GFile *path, GBytes *contents, GCancellable *cancellable,
-                                 GError **error)
+ot_gfile_replace_contents_fsync (GFile          *path,
+                                 GBytes         *contents,
+                                 GCancellable   *cancellable,
+                                 GError        **error)
 {
   gsize len;
-  const guint8 *buf = g_bytes_get_data (contents, &len);
+  const guint8*buf = g_bytes_get_data (contents, &len);
 
-  return glnx_file_replace_contents_at (AT_FDCWD, gs_file_get_path_cached (path), buf, len,
-                                        GLNX_FILE_REPLACE_DATASYNC_NEW, cancellable, error);
+  return glnx_file_replace_contents_at (AT_FDCWD, gs_file_get_path_cached (path),
+                                        buf, len,
+                                        GLNX_FILE_REPLACE_DATASYNC_NEW,
+                                        cancellable, error);
 }
 
 /**
@@ -70,7 +76,9 @@ ot_gfile_replace_contents_fsync (GFile *path, GBytes *contents, GCancellable *ca
  * exist.
  */
 gboolean
-ot_gfile_ensure_unlinked (GFile *path, GCancellable *cancellable, GError **error)
+ot_gfile_ensure_unlinked (GFile         *path,
+                          GCancellable  *cancellable,
+                          GError       **error)
 {
   g_assert (path);
   const char *pathc = gs_file_get_path_cached (path);
@@ -86,8 +94,11 @@ ot_gfile_ensure_unlinked (GFile *path, GCancellable *cancellable, GError **error
 #if !GLIB_CHECK_VERSION(2, 44, 0)
 
 gboolean
-ot_file_enumerator_iterate (GFileEnumerator *direnum, GFileInfo **out_info, GFile **out_child,
-                            GCancellable *cancellable, GError **error)
+ot_file_enumerator_iterate (GFileEnumerator  *direnum,
+                            GFileInfo       **out_info,
+                            GFile           **out_child,
+                            GCancellable     *cancellable,
+                            GError          **error)
 {
   gboolean ret = FALSE;
   GError *temp_error = NULL;
@@ -116,19 +127,17 @@ ot_file_enumerator_iterate (GFileEnumerator *direnum, GFileInfo **out_info, GFil
     }
   else if (*out_info != NULL)
     {
-      g_object_set_qdata_full ((GObject *)direnum, cached_info_quark, *out_info,
-                               (GDestroyNotify)g_object_unref);
+      g_object_set_qdata_full ((GObject*)direnum, cached_info_quark, *out_info, (GDestroyNotify)g_object_unref);
       if (out_child != NULL)
         {
           const char *name = g_file_info_get_name (*out_info);
           *out_child = g_file_get_child (g_file_enumerator_get_container (direnum), name);
-          g_object_set_qdata_full ((GObject *)direnum, cached_child_quark, *out_child,
-                                   (GDestroyNotify)g_object_unref);
+          g_object_set_qdata_full ((GObject*)direnum, cached_child_quark, *out_child, (GDestroyNotify)g_object_unref);
         }
     }
 
   ret = TRUE;
-out:
+ out:
   return ret;
 }
 
@@ -153,7 +162,7 @@ ot_file_get_path_cached (GFile *file)
 
   G_LOCK (pathname_cache);
 
-  path = g_object_get_qdata ((GObject *)file, _file_path_quark);
+  path = g_object_get_qdata ((GObject*)file, _file_path_quark);
   if (!path)
     {
       path = g_file_get_path (file);
@@ -162,8 +171,7 @@ ot_file_get_path_cached (GFile *file)
           G_UNLOCK (pathname_cache);
           return NULL;
         }
-      g_object_set_qdata_full ((GObject *)file, _file_path_quark, (char *)path,
-                               (GDestroyNotify)g_free);
+      g_object_set_qdata_full ((GObject*)file, _file_path_quark, (char*)path, (GDestroyNotify)g_free);
     }
 
   G_UNLOCK (pathname_cache);

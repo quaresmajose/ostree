@@ -30,16 +30,15 @@
 #include <libsoup/soup.h>
 
 #include "libglnx.h"
-#include "ostree-enumtypes.h"
-#include "ostree-fetcher-util.h"
 #include "ostree-fetcher.h"
-#include "ostree-repo-private.h"
+#include "ostree-fetcher-util.h"
 #include "ostree-tls-cert-interaction-private.h"
+#include "ostree-enumtypes.h"
+#include "ostree-repo-private.h"
 
-typedef struct
-{
+typedef struct {
   GPtrArray *mirrorlist; /* list of base URIs */
-  char *filename;        /* relative name to fetch or NULL */
+  char *filename; /* relative name to fetch or NULL */
   guint mirrorlist_idx;
 
   SoupMessage *message;
@@ -50,15 +49,14 @@ typedef struct
 
   gboolean is_membuf;
   OstreeFetcherRequestFlags flags;
-  char *if_none_match;       /* request ETag */
-  guint64 if_modified_since; /* seconds since the epoch */
+  char *if_none_match;  /* request ETag */
+  guint64 if_modified_since;  /* seconds since the epoch */
   GInputStream *response_body;
   GLnxTmpfile tmpf;
   GOutputStream *out_stream;
-  gboolean out_not_modified; /* TRUE if the server gave a HTTP 304 Not Modified response, which we
-                                don’t propagate as an error */
-  char *out_etag;            /* response ETag */
-  guint64 out_last_modified; /* response Last-Modified, seconds since the epoch */
+  gboolean out_not_modified;  /* TRUE if the server gave a HTTP 304 Not Modified response, which we don’t propagate as an error */
+  char *out_etag;  /* response ETag */
+  guint64 out_last_modified;  /* response Last-Modified, seconds since the epoch */
 
   guint64 max_size;
   guint64 current_size;
@@ -84,8 +82,7 @@ struct OstreeFetcher
   guint64 bytes_transferred;
 };
 
-enum
-{
+enum {
   PROP_0,
   PROP_CONFIG_FLAGS
 };
@@ -110,11 +107,16 @@ fetcher_request_free (FetcherRequest *request)
   g_free (request);
 }
 
-static void on_request_sent (GObject *object, GAsyncResult *result, gpointer user_data);
+static void
+on_request_sent (GObject      *object,
+                 GAsyncResult *result,
+                 gpointer      user_data);
 
 static gboolean
-_message_accept_cert_loose (SoupMessage *msg, GTlsCertificate *tls_peer_certificate,
-                            GTlsCertificateFlags tls_peer_errors, gpointer data)
+_message_accept_cert_loose (SoupMessage          *msg,
+                            GTlsCertificate      *tls_peer_certificate,
+                            GTlsCertificateFlags  tls_peer_errors,
+                            gpointer              data)
 {
   return TRUE;
 }
@@ -126,17 +128,17 @@ create_request_message (FetcherRequest *request)
   g_assert (request->mirrorlist_idx < request->mirrorlist->len);
 
   OstreeFetcherURI *next_mirror = g_ptr_array_index (request->mirrorlist, request->mirrorlist_idx);
-  g_autoptr (OstreeFetcherURI) uri = NULL;
+  g_autoptr(OstreeFetcherURI) uri = NULL;
   if (request->filename)
     uri = _ostree_fetcher_uri_new_subpath (next_mirror, request->filename);
   if (!uri)
-    uri = (OstreeFetcherURI *)g_uri_ref ((GUri *)next_mirror);
+    uri = (OstreeFetcherURI *) g_uri_ref ((GUri *) next_mirror);
 
   g_clear_object (&request->message);
   g_clear_object (&request->file);
   g_clear_object (&request->response_body);
 
-  GUri *guri = (GUri *)uri;
+  GUri *guri = (GUri *) uri;
 
   /* file:// URI is handle via GFile */
   if (!strcmp (g_uri_get_scheme (guri), "file"))
@@ -154,7 +156,7 @@ create_request_message (FetcherRequest *request)
 
   if (request->if_modified_since > 0)
     {
-      g_autoptr (GDateTime) date_time = g_date_time_new_from_unix_utc (request->if_modified_since);
+      g_autoptr(GDateTime) date_time = g_date_time_new_from_unix_utc (request->if_modified_since);
       g_autofree char *mod_date = g_date_time_format (date_time, "%a, %d %b %Y %H:%M:%S %Z");
       soup_message_headers_append (soup_message_get_request_headers (request->message),
                                    "If-Modified-Since", mod_date);
@@ -166,13 +168,12 @@ create_request_message (FetcherRequest *request)
 
   if (request->fetcher->extra_headers)
     {
-      g_autoptr (GVariantIter) viter = g_variant_iter_new (request->fetcher->extra_headers);
+      g_autoptr(GVariantIter) viter = g_variant_iter_new (request->fetcher->extra_headers);
       const char *key;
       const char *value;
 
       while (g_variant_iter_next (viter, "(&s&s)", &key, &value))
-        soup_message_headers_append (soup_message_get_request_headers (request->message), key,
-                                     value);
+        soup_message_headers_append (soup_message_get_request_headers (request->message), key, value);
     }
 }
 
@@ -190,43 +191,48 @@ initiate_task_request (GTask *task)
     {
       g_autofree char *uri = g_uri_to_string (soup_message_get_uri (request->message));
       const char *dest = request->is_membuf ? "memory" : "tmpfile";
-      g_debug ("Requesting %s to %s for session %p in main context %p", uri, dest, request->session,
-               request->mainctx);
-      soup_session_send_async (request->session, request->message, priority, cancellable,
-                               on_request_sent, task);
+      g_debug ("Requesting %s to %s for session %p in main context %p",
+               uri, dest, request->session, request->mainctx);
+      soup_session_send_async (request->session, request->message,
+                               priority, cancellable, on_request_sent, task);
     }
 }
 
 static void
-_ostree_fetcher_set_property (GObject *object, guint prop_id, const GValue *value,
+_ostree_fetcher_set_property (GObject      *object,
+                              guint         prop_id,
+                              const GValue *value,
+                              GParamSpec   *pspec)
+{
+  OstreeFetcher *self = OSTREE_FETCHER (object);
+
+  switch (prop_id)
+    {
+      case PROP_CONFIG_FLAGS:
+        self->config_flags = g_value_get_flags (value);
+        break;
+      default:
+        G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+        break;
+    }
+}
+
+static void
+_ostree_fetcher_get_property (GObject    *object,
+                              guint       prop_id,
+                              GValue     *value,
                               GParamSpec *pspec)
 {
   OstreeFetcher *self = OSTREE_FETCHER (object);
 
   switch (prop_id)
     {
-    case PROP_CONFIG_FLAGS:
-      self->config_flags = g_value_get_flags (value);
-      break;
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
-      break;
-    }
-}
-
-static void
-_ostree_fetcher_get_property (GObject *object, guint prop_id, GValue *value, GParamSpec *pspec)
-{
-  OstreeFetcher *self = OSTREE_FETCHER (object);
-
-  switch (prop_id)
-    {
-    case PROP_CONFIG_FLAGS:
-      g_value_set_flags (value, self->config_flags);
-      break;
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
-      break;
+      case PROP_CONFIG_FLAGS:
+        g_value_set_flags (value, self->config_flags);
+        break;
+      default:
+        G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+        break;
     }
 }
 
@@ -269,11 +275,16 @@ _ostree_fetcher_class_init (OstreeFetcherClass *klass)
   gobject_class->finalize = _ostree_fetcher_finalize;
   gobject_class->constructed = _ostree_fetcher_constructed;
 
-  g_object_class_install_property (
-      gobject_class, PROP_CONFIG_FLAGS,
-      g_param_spec_flags ("config-flags", "", "", OSTREE_TYPE_FETCHER_CONFIG_FLAGS,
-                          OSTREE_FETCHER_FLAGS_NONE,
-                          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  g_object_class_install_property (gobject_class,
+                                   PROP_CONFIG_FLAGS,
+                                   g_param_spec_flags ("config-flags",
+                                                       "",
+                                                       "",
+                                                       OSTREE_TYPE_FETCHER_CONFIG_FLAGS,
+                                                       OSTREE_FETCHER_FLAGS_NONE,
+                                                       G_PARAM_READWRITE |
+                                                       G_PARAM_CONSTRUCT_ONLY |
+                                                       G_PARAM_STATIC_STRINGS));
 }
 
 static void
@@ -283,7 +294,9 @@ _ostree_fetcher_init (OstreeFetcher *self)
 }
 
 OstreeFetcher *
-_ostree_fetcher_new (int tmpdir_dfd, const char *remote_name, OstreeFetcherConfigFlags flags)
+_ostree_fetcher_new (int                       tmpdir_dfd,
+                     const char               *remote_name,
+                     OstreeFetcherConfigFlags  flags)
 {
   OstreeFetcher *self = g_object_new (OSTREE_TYPE_FETCHER, "config-flags", flags, NULL);
   self->remote_name = g_strdup (remote_name);
@@ -299,14 +312,15 @@ _ostree_fetcher_get_dfd (OstreeFetcher *self)
 }
 
 void
-_ostree_fetcher_set_proxy (OstreeFetcher *self, const char *http_proxy)
+_ostree_fetcher_set_proxy (OstreeFetcher *self,
+                           const char    *http_proxy)
 {
   g_return_if_fail (OSTREE_IS_FETCHER (self));
   g_return_if_fail (http_proxy != NULL && http_proxy[0] != '\0');
 
   /* validate first */
-  g_autoptr (GError) local_error = NULL;
-  g_autoptr (GUri) guri = g_uri_parse (http_proxy, G_URI_FLAGS_NONE, &local_error);
+  g_autoptr(GError) local_error = NULL;
+  g_autoptr(GUri) guri = g_uri_parse (http_proxy, G_URI_FLAGS_NONE, &local_error);
   if (guri == NULL)
     {
       g_warning ("Invalid proxy URI '%s': %s", http_proxy, local_error->message);
@@ -318,7 +332,8 @@ _ostree_fetcher_set_proxy (OstreeFetcher *self, const char *http_proxy)
 }
 
 void
-_ostree_fetcher_set_cookie_jar (OstreeFetcher *self, const char *jar_path)
+_ostree_fetcher_set_cookie_jar (OstreeFetcher *self,
+                                const char    *jar_path)
 {
   g_return_if_fail (OSTREE_IS_FETCHER (self));
   g_return_if_fail (jar_path != NULL);
@@ -328,7 +343,9 @@ _ostree_fetcher_set_cookie_jar (OstreeFetcher *self, const char *jar_path)
 }
 
 void
-_ostree_fetcher_set_client_cert (OstreeFetcher *self, const char *cert_path, const char *key_path)
+_ostree_fetcher_set_client_cert (OstreeFetcher   *self,
+                                 const char      *cert_path,
+                                 const char      *key_path)
 {
   g_return_if_fail (OSTREE_IS_FETCHER (self));
 
@@ -337,11 +354,12 @@ _ostree_fetcher_set_client_cert (OstreeFetcher *self, const char *cert_path, con
 }
 
 void
-_ostree_fetcher_set_tls_database (OstreeFetcher *self, const char *tlsdb_path)
+_ostree_fetcher_set_tls_database (OstreeFetcher *self,
+                                  const char    *tlsdb_path)
 {
   g_return_if_fail (OSTREE_IS_FETCHER (self));
 
-  g_autoptr (GError) local_error = NULL;
+  g_autoptr(GError) local_error = NULL;
   GTlsDatabase *tlsdb = g_tls_file_database_new (tlsdb_path, &local_error);
   if (tlsdb == NULL)
     {
@@ -354,7 +372,8 @@ _ostree_fetcher_set_tls_database (OstreeFetcher *self, const char *tlsdb_path)
 }
 
 void
-_ostree_fetcher_set_extra_headers (OstreeFetcher *self, GVariant *extra_headers)
+_ostree_fetcher_set_extra_headers (OstreeFetcher *self,
+                                   GVariant      *extra_headers)
 {
   g_return_if_fail (OSTREE_IS_FETCHER (self));
 
@@ -363,17 +382,22 @@ _ostree_fetcher_set_extra_headers (OstreeFetcher *self, GVariant *extra_headers)
 }
 
 void
-_ostree_fetcher_set_extra_user_agent (OstreeFetcher *self, const char *extra_user_agent)
+_ostree_fetcher_set_extra_user_agent (OstreeFetcher *self,
+                                      const char    *extra_user_agent)
 {
   g_return_if_fail (OSTREE_IS_FETCHER (self));
 
   g_clear_pointer (&self->user_agent, g_free);
   if (extra_user_agent != NULL)
-    self->user_agent = g_strdup_printf ("%s %s", OSTREE_FETCHER_USERAGENT_STRING, extra_user_agent);
+    self->user_agent = g_strdup_printf ("%s %s",
+                                        OSTREE_FETCHER_USERAGENT_STRING,
+                                        extra_user_agent);
 }
 
 static gboolean
-finish_stream (FetcherRequest *request, GCancellable *cancellable, GError **error)
+finish_stream (FetcherRequest  *request,
+               GCancellable    *cancellable,
+               GError         **error)
 {
   /* Close it here since we do an async fstat(), where we don't want
    * to hit a bad fd.
@@ -384,8 +408,8 @@ finish_stream (FetcherRequest *request, GCancellable *cancellable, GError **erro
         {
           const guint8 nulchar = 0;
 
-          if (!g_output_stream_write_all (request->out_stream, &nulchar, 1, NULL, cancellable,
-                                          error))
+          if (!g_output_stream_write_all (request->out_stream, &nulchar, 1, NULL,
+                                          cancellable, error))
             return FALSE;
         }
 
@@ -410,16 +434,20 @@ finish_stream (FetcherRequest *request, GCancellable *cancellable, GError **erro
   return TRUE;
 }
 
-static void on_stream_read (GObject *object, GAsyncResult *result, gpointer user_data);
+static void
+on_stream_read (GObject      *object,
+                GAsyncResult *result,
+                gpointer      user_data);
 
 static void
-on_out_splice_complete (GObject *object, GAsyncResult *result, gpointer user_data)
+on_out_splice_complete (GObject      *object,
+                        GAsyncResult *result,
+                        gpointer      user_data)
 {
-  g_autoptr (GTask) task = G_TASK (user_data);
+  g_autoptr(GTask) task = G_TASK (user_data);
   GError *local_error = NULL;
 
-  gssize bytes_written
-      = g_output_stream_splice_finish ((GOutputStream *)object, result, &local_error);
+  gssize bytes_written = g_output_stream_splice_finish ((GOutputStream *) object, result, &local_error);
   if (bytes_written < 0)
     {
       g_task_return_error (task, local_error);
@@ -430,14 +458,19 @@ on_out_splice_complete (GObject *object, GAsyncResult *result, gpointer user_dat
   request->fetcher->bytes_transferred += bytes_written;
 
   GCancellable *cancellable = g_task_get_cancellable (task);
-  g_input_stream_read_bytes_async (request->response_body, 8192, G_PRIORITY_DEFAULT, cancellable,
-                                   on_stream_read, g_object_ref (task));
+  g_input_stream_read_bytes_async (request->response_body,
+                                   8192, G_PRIORITY_DEFAULT,
+                                   cancellable,
+                                   on_stream_read,
+                                   g_object_ref (task));
 }
 
 static void
-on_stream_read (GObject *object, GAsyncResult *result, gpointer user_data)
+on_stream_read (GObject      *object,
+                GAsyncResult *result,
+                gpointer      user_data)
 {
-  g_autoptr (GTask) task = G_TASK (user_data);
+  g_autoptr(GTask) task = G_TASK (user_data);
   FetcherRequest *request = g_task_get_task_data (task);
   GError *local_error = NULL;
 
@@ -463,8 +496,7 @@ on_stream_read (GObject *object, GAsyncResult *result, gpointer user_data)
     }
 
   /* Get a GBytes buffer */
-  g_autoptr (GBytes) bytes
-      = g_input_stream_read_bytes_finish ((GInputStream *)object, result, &local_error);
+  g_autoptr(GBytes) bytes = g_input_stream_read_bytes_finish ((GInputStream *) object, result, &local_error);
   if (!bytes)
     {
       g_task_return_error (task, local_error);
@@ -483,9 +515,8 @@ on_stream_read (GObject *object, GAsyncResult *result, gpointer user_data)
         }
       if (request->is_membuf)
         {
-          GBytes *mem_bytes
-              = g_memory_output_stream_steal_as_bytes ((GMemoryOutputStream *)request->out_stream);
-          g_task_return_pointer (task, mem_bytes, (GDestroyNotify)g_bytes_unref);
+          GBytes *mem_bytes = g_memory_output_stream_steal_as_bytes ((GMemoryOutputStream *) request->out_stream);
+          g_task_return_pointer (task, mem_bytes, (GDestroyNotify) g_bytes_unref);
         }
       else
         {
@@ -504,8 +535,8 @@ on_stream_read (GObject *object, GAsyncResult *result, gpointer user_data)
       /* Verify max size */
       if (request->max_size > 0)
         {
-          if (bytes_read > request->max_size
-              || (bytes_read + request->current_size) > request->max_size)
+          if (bytes_read > request->max_size ||
+              (bytes_read + request->current_size) > request->max_size)
             {
               g_autofree char *uristr = NULL;
 
@@ -514,10 +545,9 @@ on_stream_read (GObject *object, GAsyncResult *result, gpointer user_data)
               else
                 uristr = g_uri_to_string (soup_message_get_uri (request->message));
 
-              local_error
-                  = g_error_new (G_IO_ERROR, G_IO_ERROR_FAILED,
-                                 "URI %s exceeded maximum size of %" G_GUINT64_FORMAT " bytes",
-                                 uristr, request->max_size);
+              local_error = g_error_new (G_IO_ERROR, G_IO_ERROR_FAILED,
+                                         "URI %s exceeded maximum size of %" G_GUINT64_FORMAT " bytes",
+                                         uristr, request->max_size);
               g_task_return_error (task, local_error);
               return;
             }
@@ -529,26 +559,34 @@ on_stream_read (GObject *object, GAsyncResult *result, gpointer user_data)
        * guaranteed to do a complete write.
        */
       {
-        g_autoptr (GInputStream) membuf = g_memory_input_stream_new_from_bytes (bytes);
+        g_autoptr(GInputStream) membuf =
+          g_memory_input_stream_new_from_bytes (bytes);
         g_output_stream_splice_async (request->out_stream, membuf,
-                                      G_OUTPUT_STREAM_SPLICE_CLOSE_SOURCE, G_PRIORITY_DEFAULT,
-                                      cancellable, on_out_splice_complete, g_object_ref (task));
+                                      G_OUTPUT_STREAM_SPLICE_CLOSE_SOURCE,
+                                      G_PRIORITY_DEFAULT,
+                                      cancellable,
+                                      on_out_splice_complete,
+                                      g_object_ref (task));
       }
     }
 }
 
 static void
-on_request_sent (GObject *object, GAsyncResult *result, gpointer user_data)
+on_request_sent (GObject      *object,
+                 GAsyncResult *result,
+                 gpointer      user_data)
 {
-  g_autoptr (GTask) task = G_TASK (user_data);
+  g_autoptr(GTask) task = G_TASK (user_data);
   FetcherRequest *request = g_task_get_task_data (task);
   GError *local_error = NULL;
 
   if (request->file)
-    request->response_body
-        = (GInputStream *)g_file_read_finish ((GFile *)object, result, &local_error);
+    request->response_body = (GInputStream *) g_file_read_finish ((GFile *) object,
+                                                                  result,
+                                                                  &local_error);
   else
-    request->response_body = soup_session_send_finish ((SoupSession *)object, result, &local_error);
+    request->response_body = soup_session_send_finish ((SoupSession *) object,
+                                                       result, &local_error);
 
   if (!request->response_body)
     {
@@ -559,8 +597,8 @@ on_request_sent (GObject *object, GAsyncResult *result, gpointer user_data)
   if (request->message)
     {
       SoupStatus status = soup_message_get_status (request->message);
-      if (status == SOUP_STATUS_NOT_MODIFIED
-          && (request->if_none_match != NULL || request->if_modified_since > 0))
+      if (status == SOUP_STATUS_NOT_MODIFIED &&
+          (request->if_none_match != NULL || request->if_modified_since > 0))
         {
           /* Version on the server is unchanged from the version we have cached locally;
            * report this as an out-argument, a zero-length response buffer, and no error */
@@ -577,23 +615,25 @@ on_request_sent (GObject *object, GAsyncResult *result, gpointer user_data)
             }
           else
             {
-              g_autofree char *uristring
-                  = g_uri_to_string (soup_message_get_uri (request->message));
+              g_autofree char *uristring = g_uri_to_string (soup_message_get_uri (request->message));
               GIOErrorEnum code = _ostree_fetcher_http_status_code_to_io_error (status);
               {
-                g_autofree char *errmsg = g_strdup_printf ("Server returned status %u: %s", status,
-                                                           soup_status_get_phrase (status));
+                g_autofree char *errmsg =
+                  g_strdup_printf ("Server returned status %u: %s",
+                                   status,
+                                   soup_status_get_phrase (status));
                 local_error = g_error_new_literal (G_IO_ERROR, code, errmsg);
               }
 
               if (request->mirrorlist->len > 1)
-                g_prefix_error (&local_error, "All %u mirrors failed. Last error was: ",
+                g_prefix_error (&local_error,
+                                "All %u mirrors failed. Last error was: ",
                                 request->mirrorlist->len);
-              if (request->fetcher->remote_name
-                  && !((request->flags & OSTREE_FETCHER_REQUEST_OPTIONAL_CONTENT) > 0
-                       && code == G_IO_ERROR_NOT_FOUND))
-                _ostree_fetcher_journal_failure (request->fetcher->remote_name, uristring,
-                                                 local_error->message);
+              if (request->fetcher->remote_name &&
+                  !((request->flags & OSTREE_FETCHER_REQUEST_OPTIONAL_CONTENT) > 0 &&
+                    code == G_IO_ERROR_NOT_FOUND))
+                _ostree_fetcher_journal_failure (request->fetcher->remote_name,
+                                                 uristring, local_error->message);
 
               g_task_return_error (task, local_error);
               return;
@@ -601,12 +641,10 @@ on_request_sent (GObject *object, GAsyncResult *result, gpointer user_data)
         }
 
       /* Grab cache properties from the response */
-      request->out_etag = g_strdup (soup_message_headers_get_one (
-          soup_message_get_response_headers (request->message), "ETag"));
+      request->out_etag = g_strdup (soup_message_headers_get_one (soup_message_get_response_headers (request->message), "ETag"));
       request->out_last_modified = 0;
 
-      const char *last_modified_str = soup_message_headers_get_one (
-          soup_message_get_response_headers (request->message), "Last-Modified");
+      const char *last_modified_str = soup_message_headers_get_one (soup_message_get_response_headers (request->message), "Last-Modified");
       if (last_modified_str != NULL)
         {
           GDateTime *soup_date = soup_date_time_new_from_http_string (last_modified_str);
@@ -620,9 +658,10 @@ on_request_sent (GObject *object, GAsyncResult *result, gpointer user_data)
 
   if (request->file)
     {
-      GFileInfo *info = g_file_query_info (
-          request->file, G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE "," G_FILE_ATTRIBUTE_STANDARD_SIZE,
-          0, NULL, NULL);
+      GFileInfo *info = g_file_query_info (request->file,
+                                           G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE ","
+                                           G_FILE_ATTRIBUTE_STANDARD_SIZE,
+                                           0, NULL, NULL);
       if (info)
         {
           request->content_length = g_file_info_get_size (info);
@@ -641,17 +680,23 @@ on_request_sent (GObject *object, GAsyncResult *result, gpointer user_data)
     }
 
   GCancellable *cancellable = g_task_get_cancellable (task);
-  g_input_stream_read_bytes_async (request->response_body, 8192, G_PRIORITY_DEFAULT, cancellable,
-                                   on_stream_read, g_object_ref (task));
+  g_input_stream_read_bytes_async (request->response_body,
+                                   8192, G_PRIORITY_DEFAULT,
+                                   cancellable,
+                                   on_stream_read,
+                                   g_object_ref (task));
 }
 
 static SoupSession *
 create_soup_session (OstreeFetcher *self)
 {
   const char *user_agent = self->user_agent ?: OSTREE_FETCHER_USERAGENT_STRING;
-  SoupSession *session = soup_session_new_with_options (
-      "user-agent", user_agent, "timeout", 60, "idle-timeout", 60, "max-conns-per-host",
-      _OSTREE_MAX_OUTSTANDING_FETCHER_REQUESTS, NULL);
+  SoupSession *session =
+    soup_session_new_with_options ("user-agent", user_agent,
+                                   "timeout", 60,
+                                   "idle-timeout", 60,
+                                   "max-conns-per-host", _OSTREE_MAX_OUTSTANDING_FETCHER_REQUESTS,
+                                   NULL);
 
   /* SoupContentDecoder is included in the session by default. Remove it
    * if gzip compression isn't in use.
@@ -670,7 +715,7 @@ create_soup_session (OstreeFetcher *self)
   if (self->cookie_jar != NULL)
     soup_session_add_feature (session, SOUP_SESSION_FEATURE (self->cookie_jar));
   if (self->client_cert != NULL)
-    soup_session_set_tls_interaction (session, (GTlsInteraction *)self->client_cert);
+    soup_session_set_tls_interaction (session, (GTlsInteraction *) self->client_cert);
   if (self->tls_database != NULL)
     soup_session_set_tls_database (session, self->tls_database);
 
@@ -678,25 +723,35 @@ create_soup_session (OstreeFetcher *self)
 }
 
 static gboolean
-match_value (gpointer key, gpointer value, gpointer user_data)
+match_value (gpointer key,
+             gpointer value,
+             gpointer user_data)
 {
   return value == user_data;
 }
 
 static void
-on_session_finalized (gpointer data, GObject *object)
+on_session_finalized (gpointer  data,
+                      GObject  *object)
 {
   GHashTable *sessions = data;
   g_debug ("Removing session %p from sessions hash table", object);
-  (void)g_hash_table_foreach_remove (sessions, match_value, object);
+  (void) g_hash_table_foreach_remove (sessions, match_value, object);
 }
 
 static void
-_ostree_fetcher_request_async (OstreeFetcher *self, GPtrArray *mirrorlist, const char *filename,
-                               OstreeFetcherRequestFlags flags, const char *if_none_match,
-                               guint64 if_modified_since, gboolean is_membuf, guint64 max_size,
-                               int priority, GCancellable *cancellable,
-                               GAsyncReadyCallback callback, gpointer user_data)
+_ostree_fetcher_request_async (OstreeFetcher             *self,
+                               GPtrArray                 *mirrorlist,
+                               const char                *filename,
+                               OstreeFetcherRequestFlags  flags,
+                               const char                *if_none_match,
+                               guint64                    if_modified_since,
+                               gboolean                   is_membuf,
+                               guint64                    max_size,
+                               int                        priority,
+                               GCancellable              *cancellable,
+                               GAsyncReadyCallback        callback,
+                               gpointer                   user_data)
 {
   g_return_if_fail (OSTREE_IS_FETCHER (self));
   g_return_if_fail (mirrorlist != NULL);
@@ -719,7 +774,7 @@ _ostree_fetcher_request_async (OstreeFetcher *self, GPtrArray *mirrorlist, const
    * session is kept in the fetcher.
    */
   g_debug ("Looking up session for main context %p", request->mainctx);
-  request->session = (SoupSession *)g_hash_table_lookup (self->sessions, request->mainctx);
+  request->session = (SoupSession *) g_hash_table_lookup (self->sessions, request->mainctx);
   if (request->session != NULL)
     {
       g_debug ("Using existing session %p", request->session);
@@ -737,9 +792,9 @@ _ostree_fetcher_request_async (OstreeFetcher *self, GPtrArray *mirrorlist, const
       g_object_weak_ref (G_OBJECT (request->session), on_session_finalized, self->sessions);
     }
 
-  g_autoptr (GTask) task = g_task_new (self, cancellable, callback, user_data);
+  g_autoptr(GTask) task = g_task_new (self, cancellable, callback, user_data);
   g_task_set_source_tag (task, _ostree_fetcher_request_async);
-  g_task_set_task_data (task, request, (GDestroyNotify)fetcher_request_free);
+  g_task_set_task_data (task, request, (GDestroyNotify) fetcher_request_free);
 
   /* We'll use the GTask priority for our own priority queue. */
   g_task_set_priority (task, priority);
@@ -748,27 +803,37 @@ _ostree_fetcher_request_async (OstreeFetcher *self, GPtrArray *mirrorlist, const
 }
 
 void
-_ostree_fetcher_request_to_tmpfile (OstreeFetcher *self, GPtrArray *mirrorlist,
-                                    const char *filename, OstreeFetcherRequestFlags flags,
-                                    const char *if_none_match, guint64 if_modified_since,
-                                    guint64 max_size, int priority, GCancellable *cancellable,
-                                    GAsyncReadyCallback callback, gpointer user_data)
+_ostree_fetcher_request_to_tmpfile (OstreeFetcher             *self,
+                                    GPtrArray                 *mirrorlist,
+                                    const char                *filename,
+                                    OstreeFetcherRequestFlags  flags,
+                                    const char                *if_none_match,
+                                    guint64                    if_modified_since,
+                                    guint64                    max_size,
+                                    int                        priority,
+                                    GCancellable              *cancellable,
+                                    GAsyncReadyCallback        callback,
+                                    gpointer                   user_data)
 {
-  _ostree_fetcher_request_async (self, mirrorlist, filename, flags, if_none_match,
-                                 if_modified_since, FALSE, max_size, priority, cancellable,
+  _ostree_fetcher_request_async (self, mirrorlist, filename, flags,
+                                 if_none_match, if_modified_since, FALSE,
+                                 max_size, priority, cancellable,
                                  callback, user_data);
 }
 
 gboolean
-_ostree_fetcher_request_to_tmpfile_finish (OstreeFetcher *self, GAsyncResult *result,
-                                           GLnxTmpfile *out_tmpf, gboolean *out_not_modified,
-                                           char **out_etag, guint64 *out_last_modified,
-                                           GError **error)
+_ostree_fetcher_request_to_tmpfile_finish (OstreeFetcher  *self,
+                                           GAsyncResult   *result,
+                                           GLnxTmpfile    *out_tmpf,
+                                           gboolean       *out_not_modified,
+                                           char          **out_etag,
+                                           guint64        *out_last_modified,
+                                           GError        **error)
 {
   g_return_val_if_fail (g_task_is_valid (result, self), FALSE);
   g_return_val_if_fail (g_async_result_is_tagged (result, _ostree_fetcher_request_async), FALSE);
 
-  GTask *task = (GTask *)result;
+  GTask *task = (GTask *) result;
   gpointer ret = g_task_propagate_pointer (task, error);
   if (!ret)
     return FALSE;
@@ -789,27 +854,37 @@ _ostree_fetcher_request_to_tmpfile_finish (OstreeFetcher *self, GAsyncResult *re
 }
 
 void
-_ostree_fetcher_request_to_membuf (OstreeFetcher *self, GPtrArray *mirrorlist, const char *filename,
-                                   OstreeFetcherRequestFlags flags, const char *if_none_match,
-                                   guint64 if_modified_since, guint64 max_size, int priority,
-                                   GCancellable *cancellable, GAsyncReadyCallback callback,
-                                   gpointer user_data)
+_ostree_fetcher_request_to_membuf (OstreeFetcher             *self,
+                                   GPtrArray                 *mirrorlist,
+                                   const char                *filename,
+                                   OstreeFetcherRequestFlags  flags,
+                                   const char                *if_none_match,
+                                   guint64                    if_modified_since,
+                                   guint64                    max_size,
+                                   int                        priority,
+                                   GCancellable              *cancellable,
+                                   GAsyncReadyCallback        callback,
+                                   gpointer                   user_data)
 {
-  _ostree_fetcher_request_async (self, mirrorlist, filename, flags, if_none_match,
-                                 if_modified_since, TRUE, max_size, priority, cancellable, callback,
-                                 user_data);
+  _ostree_fetcher_request_async (self, mirrorlist, filename, flags,
+                                 if_none_match, if_modified_since, TRUE,
+                                 max_size, priority, cancellable,
+                                 callback, user_data);
 }
 
 gboolean
-_ostree_fetcher_request_to_membuf_finish (OstreeFetcher *self, GAsyncResult *result,
-                                          GBytes **out_buf, gboolean *out_not_modified,
-                                          char **out_etag, guint64 *out_last_modified,
-                                          GError **error)
+_ostree_fetcher_request_to_membuf_finish (OstreeFetcher  *self,
+                                          GAsyncResult   *result,
+                                          GBytes        **out_buf,
+                                          gboolean       *out_not_modified,
+                                          char          **out_etag,
+                                          guint64        *out_last_modified,
+                                          GError        **error)
 {
   g_return_val_if_fail (g_task_is_valid (result, self), FALSE);
   g_return_val_if_fail (g_async_result_is_tagged (result, _ostree_fetcher_request_async), FALSE);
 
-  GTask *task = (GTask *)result;
+  GTask *task = (GTask *) result;
   gpointer ret = g_task_propagate_pointer (task, error);
   if (!ret)
     return FALSE;
@@ -828,6 +903,7 @@ _ostree_fetcher_request_to_membuf_finish (OstreeFetcher *self, GAsyncResult *res
 
   return TRUE;
 }
+
 
 guint64
 _ostree_fetcher_bytes_transferred (OstreeFetcher *self)

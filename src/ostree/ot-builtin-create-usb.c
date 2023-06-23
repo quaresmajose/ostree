@@ -22,9 +22,9 @@
 
 #include "config.h"
 
-#include "ostree.h"
-#include "ot-builtins.h"
 #include "ot-main.h"
+#include "ot-builtins.h"
+#include "ostree.h"
 #include "otutil.h"
 
 #include "ostree-remote-private.h"
@@ -33,32 +33,31 @@ static gboolean opt_disable_fsync = FALSE;
 static char *opt_destination_repo = NULL;
 static char *opt_commit = NULL;
 
-static GOptionEntry options[]
-    = { { "disable-fsync", 0, 0, G_OPTION_ARG_NONE, &opt_disable_fsync, "Do not invoke fsync()",
-          NULL },
-        { "destination-repo", 0, 0, G_OPTION_ARG_FILENAME, &opt_destination_repo,
-          "Use custom repository directory within the mount", "DEST" },
-        { "commit", 0, 0, G_OPTION_ARG_STRING, &opt_commit,
-          "Pull a specific commit (only works when a single ref is specified)", "COMMIT" },
-        { NULL } };
+static GOptionEntry options[] =
+  {
+    { "disable-fsync", 0, 0, G_OPTION_ARG_NONE, &opt_disable_fsync, "Do not invoke fsync()", NULL },
+    { "destination-repo", 0, 0, G_OPTION_ARG_FILENAME, &opt_destination_repo, "Use custom repository directory within the mount", "DEST" },
+    { "commit", 0, 0, G_OPTION_ARG_STRING, &opt_commit, "Pull a specific commit (only works when a single ref is specified)", "COMMIT" },
+    { NULL }
+  };
 
 gboolean
-ostree_builtin_create_usb (int argc, char **argv, OstreeCommandInvocation *invocation,
-                           GCancellable *cancellable, GError **error)
+ostree_builtin_create_usb (int            argc,
+                           char         **argv,
+                           OstreeCommandInvocation *invocation,
+                           GCancellable  *cancellable,
+                           GError       **error)
 {
-  g_autoptr (GOptionContext) context = NULL;
-  g_autoptr (OstreeAsyncProgress) progress = NULL;
-  g_auto (GLnxConsoleRef) console = {
-    0,
-  };
+  g_autoptr(GOptionContext) context = NULL;
+  g_autoptr(OstreeAsyncProgress) progress = NULL;
+  g_auto(GLnxConsoleRef) console = { 0, };
 
   context = g_option_context_new ("MOUNT-PATH COLLECTION-ID REF [COLLECTION-ID REF...]");
 
   /* Parse options. */
-  g_autoptr (OstreeRepo) src_repo = NULL;
+  g_autoptr(OstreeRepo) src_repo = NULL;
 
-  if (!ostree_option_context_parse (context, options, &argc, &argv, invocation, &src_repo,
-                                    cancellable, error))
+  if (!ostree_option_context_parse (context, options, &argc, &argv, invocation, &src_repo, cancellable, error))
     return FALSE;
 
   if (argc < 2)
@@ -75,17 +74,13 @@ ostree_builtin_create_usb (int argc, char **argv, OstreeCommandInvocation *invoc
 
   if (argc % 2 == 1)
     {
-      ot_util_usage_error (context, "Only complete COLLECTION-ID REF pairs may be specified",
-                           error);
+      ot_util_usage_error (context, "Only complete COLLECTION-ID REF pairs may be specified", error);
       return FALSE;
     }
 
   if (opt_commit && argc > 4)
     {
-      ot_util_usage_error (
-          context,
-          "The --commit option can only be used when a single COLLECTION-ID REF pair is specified",
-          error);
+      ot_util_usage_error (context, "The --commit option can only be used when a single COLLECTION-ID REF pair is specified", error);
       return FALSE;
     }
 
@@ -100,13 +95,12 @@ ostree_builtin_create_usb (int argc, char **argv, OstreeCommandInvocation *invoc
     return FALSE;
 
   /* Read in the refs to add to the USB stick. */
-  g_autoptr (GPtrArray) refs
-      = g_ptr_array_new_full (argc, (GDestroyNotify)ostree_collection_ref_free);
+  g_autoptr(GPtrArray) refs = g_ptr_array_new_full (argc, (GDestroyNotify) ostree_collection_ref_free);
 
   for (gsize i = 2; i < argc; i += 2)
     {
-      if (!ostree_validate_collection_id (argv[i], error)
-          || !ostree_validate_rev (argv[i + 1], error))
+      if (!ostree_validate_collection_id (argv[i], error) ||
+          !ostree_validate_rev (argv[i + 1], error))
         return FALSE;
 
       g_ptr_array_add (refs, ostree_collection_ref_new (argv[i], argv[i + 1]));
@@ -115,8 +109,7 @@ ostree_builtin_create_usb (int argc, char **argv, OstreeCommandInvocation *invoc
   /* Open the destination repository on the USB stick or create it if it doesn’t exist.
    * Check it’s below @mount_root_path, and that it’s not the same as the source
    * repository. */
-  const char *dest_repo_path
-      = (opt_destination_repo != NULL) ? opt_destination_repo : ".ostree/repo";
+  const char *dest_repo_path = (opt_destination_repo != NULL) ? opt_destination_repo : ".ostree/repo";
 
   if (!glnx_shutil_mkdir_p_at (mount_root_dfd, dest_repo_path, 0755, cancellable, error))
     return FALSE;
@@ -129,8 +122,8 @@ ostree_builtin_create_usb (int argc, char **argv, OstreeCommandInvocation *invoc
 
   g_debug ("%s: Creating repository in mode %u", G_STRFUNC, mode);
 
-  g_autoptr (OstreeRepo) dest_repo
-      = ostree_repo_create_at (mount_root_dfd, dest_repo_path, mode, NULL, cancellable, error);
+  g_autoptr(OstreeRepo) dest_repo = ostree_repo_create_at (mount_root_dfd, dest_repo_path,
+                                                           mode, NULL, cancellable, error);
 
   if (dest_repo == NULL)
     return FALSE;
@@ -166,20 +159,19 @@ ostree_builtin_create_usb (int argc, char **argv, OstreeCommandInvocation *invoc
     {
       const OstreeCollectionRef *ref = g_ptr_array_index (refs, i);
 
-      g_variant_builder_add (&refs_builder, "(sss)", ref->collection_id, ref->ref_name,
-                             opt_commit ?: "");
+      g_variant_builder_add (&refs_builder, "(sss)",
+                             ref->collection_id, ref->ref_name, opt_commit ?: "");
     }
 
   {
     GVariantBuilder builder;
-    g_autoptr (GVariant) opts = NULL;
+    g_autoptr(GVariant) opts = NULL;
     OstreeRepoPullFlags flags = OSTREE_REPO_PULL_FLAGS_MIRROR;
 
     glnx_console_lock (&console);
 
     if (console.is_tty)
-      progress = ostree_async_progress_new_and_connect (
-          ostree_repo_pull_default_console_progress_changed, &console);
+      progress = ostree_async_progress_new_and_connect (ostree_repo_pull_default_console_progress_changed, &console);
 
     g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
 
@@ -193,8 +185,10 @@ ostree_builtin_create_usb (int argc, char **argv, OstreeCommandInvocation *invoc
 
     g_autofree char *src_repo_uri = g_file_get_uri (ostree_repo_get_path (src_repo));
 
-    if (!ostree_repo_pull_with_options (dest_repo, src_repo_uri, opts, progress, cancellable,
-                                        error))
+    if (!ostree_repo_pull_with_options (dest_repo, src_repo_uri,
+                                        opts,
+                                        progress,
+                                        cancellable, error))
       {
         ostree_repo_abort_transaction (dest_repo, cancellable, NULL);
         return FALSE;
@@ -214,7 +208,8 @@ ostree_builtin_create_usb (int argc, char **argv, OstreeCommandInvocation *invoc
   /* Add the symlinks .ostree/repos.d/@symlink_name → @dest_repo_path, unless
    * the @dest_repo_path is a well-known one like ostree/repo, in which case no
    * symlink is necessary; #OstreeRepoFinderMount always looks there. */
-  if (!g_str_equal (dest_repo_path, "ostree/repo") && !g_str_equal (dest_repo_path, ".ostree/repo"))
+  if (!g_str_equal (dest_repo_path, "ostree/repo") &&
+      !g_str_equal (dest_repo_path, ".ostree/repo"))
     {
       if (!glnx_shutil_mkdir_p_at (mount_root_dfd, ".ostree/repos.d", 0755, cancellable, error))
         return FALSE;
@@ -224,8 +219,7 @@ ostree_builtin_create_usb (int argc, char **argv, OstreeCommandInvocation *invoc
       GLnxDirFdIterator repos_iter;
       gboolean need_symlink = TRUE;
 
-      if (!glnx_dirfd_iterator_init_at (mount_root_dfd, ".ostree/repos.d", TRUE, &repos_iter,
-                                        error))
+      if (!glnx_dirfd_iterator_init_at (mount_root_dfd, ".ostree/repos.d", TRUE, &repos_iter, error))
         return FALSE;
 
       while (TRUE)
@@ -252,8 +246,7 @@ ostree_builtin_create_usb (int argc, char **argv, OstreeCommandInvocation *invoc
       if (need_symlink)
         {
           /* Relative to .ostree/repos.d. */
-          g_autofree char *relative_dest_repo_path
-              = g_build_filename ("..", "..", dest_repo_path, NULL);
+          g_autofree char *relative_dest_repo_path = g_build_filename ("..", "..", dest_repo_path, NULL);
           guint i;
           const guint max_attempts = 100;
 
@@ -261,11 +254,9 @@ ostree_builtin_create_usb (int argc, char **argv, OstreeCommandInvocation *invoc
             {
               g_autofree char *symlink_path = g_strdup_printf (".ostree/repos.d/%02u-generated", i);
 
-              int ret = TEMP_FAILURE_RETRY (
-                  symlinkat (relative_dest_repo_path, mount_root_dfd, symlink_path));
+              int ret = TEMP_FAILURE_RETRY (symlinkat (relative_dest_repo_path, mount_root_dfd, symlink_path));
               if (ret < 0 && errno != EEXIST)
-                return glnx_throw_errno_prefix (error, "symlinkat(%s → %s)", symlink_path,
-                                                relative_dest_repo_path);
+                return glnx_throw_errno_prefix (error, "symlinkat(%s → %s)", symlink_path, relative_dest_repo_path);
               else if (ret >= 0)
                 break;
             }
@@ -278,8 +269,8 @@ ostree_builtin_create_usb (int argc, char **argv, OstreeCommandInvocation *invoc
   /* Report success to the user. */
   g_autofree char *src_repo_path = g_file_get_path (ostree_repo_get_path (src_repo));
 
-  g_print ("Copied %u/%u refs successfully from ‘%s’ to ‘%s’ repository in ‘%s’.\n", refs->len,
-           refs->len, src_repo_path, dest_repo_path, mount_root_path);
+  g_print ("Copied %u/%u refs successfully from ‘%s’ to ‘%s’ repository in ‘%s’.\n", refs->len, refs->len,
+           src_repo_path, dest_repo_path, mount_root_path);
 
   return TRUE;
 }

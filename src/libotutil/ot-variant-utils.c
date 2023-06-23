@@ -21,8 +21,8 @@
 
 #include "config.h"
 
-#include <gio/gfiledescriptorbased.h>
 #include <gio/gio.h>
+#include <gio/gfiledescriptorbased.h>
 
 #include <string.h>
 
@@ -32,18 +32,20 @@
 GVariant *
 ot_gvariant_new_empty_string_dict (void)
 {
-  g_auto (GVariantBuilder) builder = OT_VARIANT_BUILDER_INITIALIZER;
+  g_auto(GVariantBuilder) builder = OT_VARIANT_BUILDER_INITIALIZER;
   g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
   return g_variant_builder_end (&builder);
 }
 
+
 /* Create a new GVariant of type ay from the raw @data pointer */
 GVariant *
-ot_gvariant_new_bytearray (const guchar *data, gsize len)
+ot_gvariant_new_bytearray (const guchar   *data,
+                           gsize           len)
 {
   gpointer data_copy = g_memdup2 (data, len);
-  GVariant *ret
-      = g_variant_new_from_data (G_VARIANT_TYPE ("ay"), data_copy, len, FALSE, g_free, data_copy);
+  GVariant *ret = g_variant_new_from_data (G_VARIANT_TYPE ("ay"), data_copy,
+                                 len, FALSE, g_free, data_copy);
   return ret;
 }
 
@@ -54,8 +56,8 @@ ot_gvariant_new_ay_bytes (GBytes *bytes)
   gsize size;
   gconstpointer data = g_bytes_get_data (bytes, &size);
   g_bytes_ref (bytes);
-  return g_variant_new_from_data (G_VARIANT_TYPE ("ay"), data, size, TRUE,
-                                  (GDestroyNotify)g_bytes_unref, bytes);
+  return g_variant_new_from_data (G_VARIANT_TYPE ("ay"), data, size,
+                                  TRUE, (GDestroyNotify)g_bytes_unref, bytes);
 }
 
 /* Create a GVariant in @out_variant that is backed by
@@ -64,10 +66,14 @@ ot_gvariant_new_ay_bytes (GBytes *bytes)
  * by the GVariant core; see g_variant_new_from_data().
  */
 gboolean
-ot_variant_read_fd (int fd, goffset start, const GVariantType *type, gboolean trusted,
-                    GVariant **out_variant, GError **error)
+ot_variant_read_fd (int                    fd,
+                    goffset                start,
+                    const GVariantType    *type,
+                    gboolean               trusted,
+                    GVariant             **out_variant,
+                    GError               **error)
 {
-  g_autoptr (GBytes) bytes = ot_fd_readall_or_mmap (fd, start, error);
+  g_autoptr(GBytes) bytes = ot_fd_readall_or_mmap (fd, start, error);
   if (!bytes)
     return FALSE;
 
@@ -79,7 +85,8 @@ ot_variant_read_fd (int fd, goffset start, const GVariantType *type, gboolean tr
  * for a new variant, inherting the data from @variant.
  */
 GVariantBuilder *
-ot_util_variant_builder_from_variant (GVariant *variant, const GVariantType *type)
+ot_util_variant_builder_from_variant (GVariant            *variant,
+                                      const GVariantType  *type)
 {
   GVariantBuilder *builder = g_variant_builder_new (type);
 
@@ -88,7 +95,7 @@ ot_util_variant_builder_from_variant (GVariant *variant, const GVariantType *typ
       const int n = g_variant_n_children (variant);
       for (int i = 0; i < n; i++)
         {
-          g_autoptr (GVariant) child = g_variant_get_child_value (variant, i);
+          g_autoptr(GVariant) child = g_variant_get_child_value (variant, i);
           g_variant_builder_add_value (builder, child);
         }
     }
@@ -109,7 +116,9 @@ ot_util_variant_builder_from_variant (GVariant *variant, const GVariantType *typ
  * Returns: %TRUE if found, %FALSE otherwise
  */
 gboolean
-ot_variant_bsearch_str (GVariant *array, const char *str, int *out_pos)
+ot_variant_bsearch_str (GVariant   *array,
+                        const char *str,
+                        int        *out_pos)
 {
   const gsize n = g_variant_n_children (array);
   if (n == 0)
@@ -124,7 +133,7 @@ ot_variant_bsearch_str (GVariant *array, const char *str, int *out_pos)
 
       imid = (imin + imax) / 2;
 
-      g_autoptr (GVariant) child = g_variant_get_child_value (array, imid);
+      g_autoptr(GVariant) child = g_variant_get_child_value (array, imid);
       g_variant_get_child (child, 0, "&s", &cur, NULL);
 
       int cmp = strcmp (cur, str);

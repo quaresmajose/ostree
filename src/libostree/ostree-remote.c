@@ -26,13 +26,13 @@
 #include "config.h"
 
 #include <gio/gio.h>
-#include <glib-object.h>
 #include <glib.h>
+#include <glib-object.h>
 #include <stdint.h>
 #include <string.h>
 
-#include "ostree-remote-private.h"
 #include "ostree-remote.h"
+#include "ostree-remote-private.h"
 #include "ot-keyfile-utils.h"
 
 /**
@@ -58,7 +58,8 @@ ostree_remote_new (const gchar *name)
 }
 
 OstreeRemote *
-ostree_remote_new_dynamic (const gchar *name, const gchar *refspec_name)
+ostree_remote_new_dynamic (const gchar *name,
+                           const gchar *refspec_name)
 {
   OstreeRemote *remote;
 
@@ -70,17 +71,17 @@ ostree_remote_new_dynamic (const gchar *name, const gchar *refspec_name)
   remote->name = g_strdup (name);
   remote->refspec_name = g_strdup (refspec_name);
   remote->group = g_strdup_printf ("remote \"%s\"", (refspec_name != NULL) ? refspec_name : name);
-  remote->keyring
-      = g_strdup_printf ("%s.trustedkeys.gpg", (refspec_name != NULL) ? refspec_name : name);
+  remote->keyring = g_strdup_printf ("%s.trustedkeys.gpg", (refspec_name != NULL) ? refspec_name : name);
   remote->options = g_key_file_new ();
 
   return remote;
 }
 
 OstreeRemote *
-ostree_remote_new_from_keyfile (GKeyFile *keyfile, const gchar *group)
+ostree_remote_new_from_keyfile (GKeyFile    *keyfile,
+                                const gchar *group)
 {
-  g_autoptr (GMatchInfo) match = NULL;
+  g_autoptr(GMatchInfo) match = NULL;
   OstreeRemote *remote;
   g_autofree gchar *name = NULL;
 
@@ -155,7 +156,9 @@ ostree_remote_unref (OstreeRemote *remote)
     }
 }
 
-G_DEFINE_BOXED_TYPE (OstreeRemote, ostree_remote, ostree_remote_ref, ostree_remote_unref);
+G_DEFINE_BOXED_TYPE(OstreeRemote, ostree_remote,
+                    ostree_remote_ref,
+                    ostree_remote_unref);
 
 /**
  * ostree_remote_get_name:

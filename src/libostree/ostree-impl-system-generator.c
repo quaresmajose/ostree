@@ -19,24 +19,24 @@
 
 #include "config.h"
 
-#include <errno.h>
-#include <gio/gunixoutputstream.h>
 #include <glib-unix.h>
+#include <gio/gunixoutputstream.h>
+#include <errno.h>
 #include <stdio.h>
 #ifdef HAVE_LIBMOUNT
 #include <libmount.h>
 #endif
-#include "otutil.h"
-#include <stdbool.h>
 #include <sys/statvfs.h>
+#include <stdbool.h>
+#include "otutil.h"
 
-#include "ostree-cmd-private.h"
-#include "ostree-core-private.h"
 #include "ostree.h"
+#include "ostree-core-private.h"
+#include "ostree-cmd-private.h"
 
 #ifdef HAVE_LIBMOUNT
 typedef FILE OtLibMountFile;
-G_DEFINE_AUTOPTR_CLEANUP_FUNC (OtLibMountFile, endmntent)
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(OtLibMountFile, endmntent)
 
 /* Taken from systemd path-util.c */
 static bool
@@ -46,7 +46,7 @@ is_path (const char *p)
 }
 
 /* Taken from systemd path-util.c */
-static char *
+static char*
 path_kill_slashes (char *path)
 {
   char *f, *t;
@@ -91,7 +91,8 @@ path_kill_slashes (char *path)
  * mounted yet.
  */
 static char *
-stateroot_from_ostree_cmdline (const char *ostree_cmdline, GError **error)
+stateroot_from_ostree_cmdline (const char *ostree_cmdline,
+                               GError **error)
 {
   static GRegex *regex;
   static gsize regex_initialized;
@@ -102,7 +103,7 @@ stateroot_from_ostree_cmdline (const char *ostree_cmdline, GError **error)
       g_once_init_leave (&regex_initialized, 1);
     }
 
-  g_autoptr (GMatchInfo) match = NULL;
+  g_autoptr(GMatchInfo) match = NULL;
   if (!g_regex_match (regex, ostree_cmdline, 0, &match))
     return glnx_null_throw (error, "Failed to parse %s", ostree_cmdline);
 
@@ -112,8 +113,10 @@ stateroot_from_ostree_cmdline (const char *ostree_cmdline, GError **error)
 
 /* Forcibly enable our internal units, since we detected ostree= on the kernel cmdline */
 static gboolean
-require_internal_units (const char *normal_dir, const char *early_dir, const char *late_dir,
-                        GError **error)
+require_internal_units (const char *normal_dir,
+                        const char *early_dir,
+                        const char *late_dir,
+                        GError    **error)
 {
 #ifdef SYSTEM_DATA_UNIT_PATH
   GCancellable *cancellable = NULL;
@@ -122,23 +125,16 @@ require_internal_units (const char *normal_dir, const char *early_dir, const cha
   if (!glnx_opendirat (AT_FDCWD, normal_dir, TRUE, &normal_dir_dfd, error))
     return FALSE;
 
-  if (!glnx_shutil_mkdir_p_at (normal_dir_dfd, "local-fs.target.requires", 0755, cancellable,
-                               error))
+  if (!glnx_shutil_mkdir_p_at (normal_dir_dfd, "local-fs.target.requires", 0755, cancellable, error))
     return FALSE;
-  if (symlinkat (SYSTEM_DATA_UNIT_PATH "/ostree-remount.service", normal_dir_dfd,
-                 "local-fs.target.requires/ostree-remount.service")
-      < 0)
+  if (symlinkat (SYSTEM_DATA_UNIT_PATH "/ostree-remount.service", normal_dir_dfd, "local-fs.target.requires/ostree-remount.service") < 0)
     return glnx_throw_errno_prefix (error, "symlinkat");
 
   if (!glnx_shutil_mkdir_p_at (normal_dir_dfd, "multi-user.target.wants", 0755, cancellable, error))
     return FALSE;
-  if (symlinkat (SYSTEM_DATA_UNIT_PATH "/ostree-finalize-staged.path", normal_dir_dfd,
-                 "multi-user.target.wants/ostree-finalize-staged.path")
-      < 0)
+  if (symlinkat (SYSTEM_DATA_UNIT_PATH "/ostree-finalize-staged.path", normal_dir_dfd, "multi-user.target.wants/ostree-finalize-staged.path") < 0)
     return glnx_throw_errno_prefix (error, "symlinkat");
-  if (symlinkat (SYSTEM_DATA_UNIT_PATH "/ostree-boot-complete.service", normal_dir_dfd,
-                 "multi-user.target.wants/ostree-boot-complete.service")
-      < 0)
+  if (symlinkat (SYSTEM_DATA_UNIT_PATH "/ostree-boot-complete.service", normal_dir_dfd, "multi-user.target.wants/ostree-boot-complete.service") < 0)
     return glnx_throw_errno_prefix (error, "symlinkat");
 
   return TRUE;
@@ -149,8 +145,11 @@ require_internal_units (const char *normal_dir, const char *early_dir, const cha
 
 /* Generate var.mount */
 static gboolean
-fstab_generator (const char *ostree_cmdline, const char *normal_dir, const char *early_dir,
-                 const char *late_dir, GError **error)
+fstab_generator (const char *ostree_cmdline,
+                 const char *normal_dir,
+                 const char *early_dir,
+                 const char *late_dir,
+                 GError    **error)
 {
 #ifdef HAVE_LIBMOUNT
   /* Not currently cancellable, but define a var in case we care later */
@@ -165,7 +164,7 @@ fstab_generator (const char *ostree_cmdline, const char *normal_dir, const char 
     return FALSE;
 
   /* Load /etc/fstab if it exists, and look for a /var mount */
-  g_autoptr (OtLibMountFile) fstab = setmntent (fstab_path, "re");
+  g_autoptr(OtLibMountFile) fstab = setmntent (fstab_path, "re");
   gboolean found_var_mnt = FALSE;
   if (!fstab)
     {
@@ -205,12 +204,11 @@ fstab_generator (const char *ostree_cmdline, const char *normal_dir, const char 
   /* Generate our bind mount unit */
   const char *stateroot_var_path = glnx_strjoina ("/sysroot/ostree/deploy/", stateroot, "/var");
 
-  g_auto (GLnxTmpfile) tmpf = {
-    0,
-  };
-  if (!glnx_open_tmpfile_linkable_at (normal_dir_dfd, ".", O_WRONLY | O_CLOEXEC, &tmpf, error))
+  g_auto(GLnxTmpfile) tmpf = { 0, };
+  if (!glnx_open_tmpfile_linkable_at (normal_dir_dfd, ".", O_WRONLY | O_CLOEXEC,
+                                      &tmpf, error))
     return FALSE;
-  g_autoptr (GOutputStream) outstream = g_unix_output_stream_new (tmpf.fd, FALSE);
+  g_autoptr(GOutputStream) outstream = g_unix_output_stream_new (tmpf.fd, FALSE);
   gsize bytes_written;
   /* This code is inspired by systemd's fstab-generator.c.
    *
@@ -228,7 +226,8 @@ fstab_generator (const char *ostree_cmdline, const char *normal_dir, const char 
                                "Where=%s\n"
                                "What=%s\n"
                                "Options=bind\n",
-                               var_path, stateroot_var_path))
+                               var_path,
+                               stateroot_var_path))
     return FALSE;
   if (!g_output_stream_flush (outstream, cancellable, error))
     return FALSE;
@@ -237,8 +236,8 @@ fstab_generator (const char *ostree_cmdline, const char *normal_dir, const char 
   if (!glnx_fchmod (tmpf.fd, 0644, error))
     return FALSE;
   /* Error out if somehow it already exists, that'll help us debug conflicts */
-  if (!glnx_link_tmpfile_at (&tmpf, GLNX_LINK_TMPFILE_NOREPLACE, normal_dir_dfd, "var.mount",
-                             error))
+  if (!glnx_link_tmpfile_at (&tmpf, GLNX_LINK_TMPFILE_NOREPLACE,
+                             normal_dir_dfd, "var.mount", error))
     return FALSE;
 
   /* And ensure it's required; newer systemd will auto-inject fs dependencies
@@ -246,8 +245,7 @@ fstab_generator (const char *ostree_cmdline, const char *normal_dir, const char 
    * need this. It's what the fstab generator does.  And my mother always said,
    * listen to the fstab generator.
    */
-  if (!glnx_shutil_mkdir_p_at (normal_dir_dfd, "local-fs.target.requires", 0755, cancellable,
-                               error))
+  if (!glnx_shutil_mkdir_p_at (normal_dir_dfd, "local-fs.target.requires", 0755, cancellable, error))
     return FALSE;
   if (symlinkat ("../var.mount", normal_dir_dfd, "local-fs.target.requires/var.mount") < 0)
     return glnx_throw_errno_prefix (error, "symlinkat");
@@ -260,8 +258,11 @@ fstab_generator (const char *ostree_cmdline, const char *normal_dir, const char 
 
 /* Implementation of ostree-system-generator */
 gboolean
-_ostree_impl_system_generator (const char *ostree_cmdline, const char *normal_dir,
-                               const char *early_dir, const char *late_dir, GError **error)
+_ostree_impl_system_generator (const char *ostree_cmdline,
+                               const char *normal_dir,
+                               const char *early_dir,
+                               const char *late_dir,
+                               GError    **error)
 {
   if (!require_internal_units (normal_dir, early_dir, late_dir, error))
     return FALSE;
